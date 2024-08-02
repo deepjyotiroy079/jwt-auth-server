@@ -18,6 +18,22 @@ passport.use(new JwtStrategy(jwtOptions, (jwtPayload, done) => {
 	}
 }));
 
+
+const authorization = (req, res, next) => {
+	const token = req.cookies.access_token;
+	if(!token) {
+		return res.sendStatus(403);
+	} 
+	try {
+		const data = jwt.verify(token, 'secret')
+		req.username = data.username;
+    	// req.userRole = data.role;
+		return next();
+    return next();
+	} catch {
+		return res.sendStatus(403);
+	}
+}
 /* GET home page. */
 router.get('/', function(req, res, next) {
 	res.render('index', { title: 'Express' });
@@ -27,13 +43,32 @@ router.post('/login', (req, res, next) => {
 	const { username, password } = req.body;
 	if (username === 'username' && password === 'password') {
 		const token = jwt.sign({ sub: 'username' }, 'secret');
-		res.json({ token });
+		// res.json({ token });
+		res.cookie("access_token", token, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			}).status(200)
+			.json({ message: "Logged in successfully 😊 👌" });
 	} else {
 		res.status(401).send('Invalid credentials');
 	}
 });
 
-router.get('/protected', passport.authenticate('jwt', { session: false }), (req, res) => {
-	res.json({ message: 'You are authorized to access this resource' });
+router.get('/logout', authorization, (req, res) => {
+	return res
+	  .clearCookie("access_token")
+	  .status(200)  
+	  .json({ message: "Successfully logged out 😏 🍀" })
+	  .redirect('/');
 });
+
+router.get('/protected', authorization, (req, res) => {
+	res.send(`
+		<div>
+			<p>This is a protected link</p>
+			<a href="/logout">Logout</a>
+		</div>`
+	);
+});
+
 module.exports = router;
